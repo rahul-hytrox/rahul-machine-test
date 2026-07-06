@@ -1,11 +1,75 @@
 import { useEffect, useMemo, useState } from "react";
-import { Form, useLoaderData, useNavigate, useSearchParams } from "react-router";
+import {
+  Form,
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useSearchParams,
+} from "react-router";
 import { authenticate } from "../shopify.server";
 import machineTestStyles from "../styles/machine-test.css?url";
+
+const ADDON_METAFIELD_NAMESPACE = "custom";
+const ADDON_METAFIELD_KEY = "product_addons";
 
 export const links = () => [
   { rel: "stylesheet", href: machineTestStyles },
 ];
+
+function chunkArray(items, size) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function getNumericIdFromGid(gid) {
+  if (!gid || typeof gid !== "string") {
+    return "";
+  }
+
+  return gid.split("/").pop();
+}
+
+function safeJsonParse(value, fallback) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.error("JSON parse error:", error);
+    return fallback;
+  }
+}
+
+function normalizeAddonProducts(products) {
+  return products.map((product) => {
+    const image = product.featuredMedia?.preview?.image;
+
+    return {
+      id: product.id,
+      numericId: product.legacyResourceId || getNumericIdFromGid(product.id),
+      title: product.title,
+      handle: product.handle,
+      status: product.status,
+      image: image
+        ? {
+          url: image.url,
+          altText: image.altText || product.title,
+        }
+        : null,
+      variants: product.variants.edges.map((edge) => ({
+        id: edge.node.id,
+        numericId:
+          edge.node.legacyResourceId || getNumericIdFromGid(edge.node.id),
+        title: edge.node.title,
+        price: edge.node.price,
+        availableForSale: edge.node.availableForSale,
+      })),
+    };
+  });
+}
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -21,6 +85,7 @@ export const loader = async ({ request }) => {
           edges {
             node {
               id
+              legacyResourceId
               title
               handle
               status
@@ -32,12 +97,14 @@ export const loader = async ({ request }) => {
                   }
                 }
               }
-              variants(first: 20) {
+              variants(first: 50) {
                 edges {
                   node {
                     id
+                    legacyResourceId
                     title
                     price
+                    availableForSale
                   }
                 }
               }
@@ -56,14 +123,121 @@ export const loader = async ({ request }) => {
 
   const json = await response.json();
 
+  if (json.errors) {
+    console.error("Product loader GraphQL errors:", json.errors);
+  }
+
   return {
-    products: json.data.products.edges.map((edge) => edge.node),
+    products: json.data?.products?.edges?.map((edge) => edge.node) || [],
     query,
+  };
+};
+
+export const action = async ({ request }) => {
+  const { admin } = await authenticate.admin(request);
+  const formData = await request.formData();
+
+  const intent = formData.get("intent");
+
+  if (intent !== "save_addons") {
+    return {
+      ok: false,
+      message: "Invalid add-on save request.",
+    };
+  }
+
+  const mainProducts = safeJsonParse(formData.get("mainProducts") || "[]", []);
+  const addonProducts = safeJsonParse(formData.get("addonProducts") || "[]", []);
+
+  if (!Array.isArray(mainProducts) || mainProducts.length === 0) {
+    return {
+      ok: false,
+      message: "Please select at least one main product.",
+    };
+  }
+
+  if (!Array.isArray(addonProducts)) {
+    return {
+      ok: false,
+      message: "Invalid add-on product data.",
+    };
+  }
+
+  const normalizedAddons = normalizeAddonProducts(addonProducts);
+
+  const metafields = mainProducts.map((product) => ({
+    ownerId: product.id,
+    namespace: ADDON_METAFIELD_NAMESPACE,
+    key: ADDON_METAFIELD_KEY,
+    type: "json",
+    value: JSON.stringify({
+      addonProducts: normalizedAddons,
+      updatedAt: new Date().toISOString(),
+    }),
+  }));
+
+  const mutation = `#graphql
+    mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        metafields {
+          id
+          namespace
+          key
+          owner {
+            ... on Product {
+              id
+            }
+          }
+        }
+        userErrors {
+          field
+          message
+          code
+        }
+      }
+    }
+  `;
+
+  const metafieldChunks = chunkArray(metafields, 25);
+
+  for (const chunk of metafieldChunks) {
+    const response = await admin.graphql(mutation, {
+      variables: {
+        metafields: chunk,
+      },
+    });
+
+    const json = await response.json();
+
+    if (json.errors) {
+      console.error("metafieldsSet GraphQL errors:", json.errors);
+
+      return {
+        ok: false,
+        message: "Shopify GraphQL error while saving add-ons.",
+      };
+    }
+
+    const userErrors = json.data?.metafieldsSet?.userErrors || [];
+
+    if (userErrors.length > 0) {
+      return {
+        ok: false,
+        message: userErrors.map((error) => error.message).join(", "),
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    selectedAddonIds: normalizedAddons.map((product) => product.id),
+    message: "Add-on configuration saved to product metafields.",
   };
 };
 
 export default function AddonsPage() {
   const { products, query } = useLoaderData();
+  const fetcher = useFetcher();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -77,6 +251,7 @@ export default function AddonsPage() {
 
       if (savedProducts) {
         const parsedProducts = JSON.parse(savedProducts);
+
         if (Array.isArray(parsedProducts)) {
           setMainProducts(parsedProducts);
         }
@@ -84,6 +259,7 @@ export default function AddonsPage() {
 
       if (savedAddons) {
         const parsedAddons = JSON.parse(savedAddons);
+
         if (Array.isArray(parsedAddons)) {
           setSelectedAddons(parsedAddons);
         }
@@ -92,6 +268,25 @@ export default function AddonsPage() {
       console.error("Add-on page load error:", error);
     }
   }, []);
+
+  useEffect(() => {
+    if (!fetcher.data) {
+      return;
+    }
+
+    if (fetcher.data.ok) {
+      window.localStorage.setItem(
+        "selectedAddonProducts",
+        JSON.stringify(fetcher.data.selectedAddonIds || []),
+      );
+
+      alert(fetcher.data.message);
+      navigate("/app/configure");
+      return;
+    }
+
+    alert(fetcher.data.message || "Unable to save add-ons.");
+  }, [fetcher.data, navigate]);
 
   const mainProductIds = useMemo(() => {
     return mainProducts.map((product) => product.id);
@@ -105,6 +300,8 @@ export default function AddonsPage() {
     return addonProducts.filter((product) => selectedAddons.includes(product.id));
   }, [addonProducts, selectedAddons]);
 
+  const isSaving = fetcher.state !== "idle";
+
   function toggleAddon(productId) {
     setSelectedAddons((current) => {
       if (current.includes(productId)) {
@@ -116,17 +313,21 @@ export default function AddonsPage() {
   }
 
   function saveAddonConfiguration() {
-    const config = {
-      mainProducts,
-      addonProducts: selectedAddonData,
-      updatedAt: new Date().toISOString(),
-    };
+    if (mainProducts.length === 0) {
+      alert("Please select at least one main product.");
+      return;
+    }
 
-    window.localStorage.setItem("selectedAddonProducts", JSON.stringify(selectedAddons));
-    window.localStorage.setItem("addonConfiguration", JSON.stringify(config));
-
-    alert("Add-on configuration saved.");
-    navigate("/app/configure");
+    fetcher.submit(
+      {
+        intent: "save_addons",
+        mainProducts: JSON.stringify(mainProducts),
+        addonProducts: JSON.stringify(selectedAddonData),
+      },
+      {
+        method: "post",
+      },
+    );
   }
 
   return (
@@ -152,8 +353,14 @@ export default function AddonsPage() {
         {mainProducts.length > 0 ? (
           <div className="selected-products-grid">
             {mainProducts.map((product) => {
-              const image = product.featuredMedia?.preview?.image?.url;
-              const alt = product.featuredMedia?.preview?.image?.altText || product.title;
+              const image =
+                product.featuredMedia?.preview?.image?.url ||
+                product.featuredImage?.url;
+
+              const alt =
+                product.featuredMedia?.preview?.image?.altText ||
+                product.featuredImage?.altText ||
+                product.title;
 
               return (
                 <div className="selected-product-card" key={product.id}>
@@ -185,16 +392,18 @@ export default function AddonsPage() {
         <div className="addon-card-header">
           <div>
             <h2>Choose add-on products</h2>
-            <p>Selected add-ons: <strong>{selectedAddons.length}</strong></p>
+            <p>
+              Selected add-ons: <strong>{selectedAddons.length}</strong>
+            </p>
           </div>
 
           <button
             type="button"
             className="primary-button"
-            disabled={mainProducts.length === 0}
+            disabled={mainProducts.length === 0 || isSaving}
             onClick={saveAddonConfiguration}
           >
-            Save add-ons
+            {isSaving ? "Saving..." : "Save add-ons"}
           </button>
         </div>
 
@@ -258,7 +467,6 @@ export default function AddonsPage() {
                       </td>
 
                       <td>{product.handle}</td>
-
                       <td>{product.variants.edges.length}</td>
                     </tr>
                   );

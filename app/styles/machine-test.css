@@ -293,6 +293,7 @@
     flex-direction: column;
   }
 }
+
 /* Add-on configuration page */
 
 .addon-selection-card {
@@ -322,6 +323,7 @@
     flex-direction: column;
   }
 }
+
 /* Custom options page */
 
 .custom-options-builder-card {
@@ -468,5 +470,290 @@
 
   .created-field-card {
     flex-direction: column;
+  }
+}
+
+.machine-test-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.configure-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.configure-section-heading h2 {
+  margin: 0 0 6px;
+}
+
+.configure-section-heading p {
+  margin: 0;
+  color: #616161;
+}
+
+.configure-count-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f1f8f4;
+  color: #16794c;
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.configure-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  text-align: left;
+}
+
+.configure-option-content {
+  flex: 1;
+}
+
+.configure-status-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 14px;
+  min-height: 30px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.configure-status-pill.is-complete {
+  background: #e9f8ef;
+  color: #16794c;
+}
+
+.configure-status-pill.is-pending {
+  background: #fff4e5;
+  color: #9a5b00;
+}
+
+.configure-summary-card {
+  margin-top: 24px;
+}
+
+.configure-test-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.configure-test-card {
+  border: 1px solid #dde0e4;
+  border-radius: 14px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.configure-test-card h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.configure-test-links {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.configure-test-links a {
+  color: #005bd3;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.configure-test-links a:hover {
+  text-decoration: underline;
+}
+
+.configure-note-box {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #dde0e4;
+  border-radius: 14px;
+  background: #f7f7f7;
+}
+
+.configure-note-box h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.configure-note-box p {
+  margin: 0;
+  color: #4f4f4f;
+  line-height: 1.5;
+}
+
+@media screen and (max-width: 749px) {
+  .machine-test-header-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .configure-section-heading {
+    flex-direction: column;
+  }
+
+  .configure-option-card {
+    gap: 12px;
+  }
+}
+
+/**Config page***/
+.machine-test-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.configure-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.configure-section-heading h2 {
+  margin: 0 0 6px;
+}
+
+.configure-section-heading p {
+  margin: 0;
+  color: #616161;
+}
+
+.configure-count-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f1f8f4;
+  color: #16794c;
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.configure-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  text-align: left;
+}
+
+.configure-option-content {
+  flex: 1;
+}
+
+.configure-status-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 14px;
+  min-height: 30px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.configure-status-pill.is-complete {
+  background: #e9f8ef;
+  color: #16794c;
+}
+
+.configure-status-pill.is-pending {
+  background: #fff4e5;
+  color: #9a5b00;
+}
+
+.configure-summary-card {
+  margin-top: 24px;
+}
+
+.configure-test-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.configure-test-card {
+  border: 1px solid #dde0e4;
+  border-radius: 14px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.configure-test-card h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.configure-test-links {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.configure-test-links a {
+  color: #005bd3;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.configure-test-links a:hover {
+  text-decoration: underline;
+}
+
+.configure-note-box {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #dde0e4;
+  border-radius: 14px;
+  background: #f7f7f7;
+}
+
+.configure-note-box h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.configure-note-box p {
+  margin: 0;
+  color: #4f4f4f;
+  line-height: 1.5;
+}
+
+@media screen and (max-width: 749px) {
+  .machine-test-header-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .configure-section-heading {
+    flex-direction: column;
+  }
+
+  .configure-option-card {
+    gap: 12px;
   }
 }

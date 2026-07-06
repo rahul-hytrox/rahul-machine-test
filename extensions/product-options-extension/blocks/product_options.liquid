@@ -1,214 +1,258 @@
-<div class="product-options-box" data-product-options-extension>
-  <div class="po-card">
-    <h3 class="po-heading">Add Ons</h3>
+{{ 'product-options.css' | asset_url | stylesheet_tag }}
 
-    <div class="po-addon">
-      <label class="po-addon-top">
-        <input type="checkbox" class="po-checkbox">
-        <div class="po-img"></div>
-        <div>
-          <p class="po-title">YOUR PRODUCTS TITLE HERE</p>
-          <p class="po-price">$18.00 <span>$34.00</span></p>
+{% assign addon_config = product.metafields.custom.product_addons.value %}
+{% assign custom_options_config = product.metafields.custom.custom_options.value %}
+
+{% assign addon_products = addon_config.addonProducts %}
+{% assign custom_fields = custom_options_config.fields %}
+
+{% assign has_valid_addons = false %}
+{% assign has_valid_custom_fields = false %}
+
+{% if addon_products != blank %}
+  {% for addon in addon_products %}
+    {% assign first_variant = addon.variants.first %}
+    {% if addon.title != blank and first_variant.numericId != blank %}
+      {% assign has_valid_addons = true %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+{% if custom_fields != blank %}
+  {% for field in custom_fields %}
+    {% if field.label != blank and field.type != blank %}
+      {% assign has_valid_custom_fields = true %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+{% if has_valid_addons or has_valid_custom_fields %}
+  <div
+    class="product-options-box"
+    data-product-options-extension
+    data-product-id="{{ product.id }}"
+    data-product-handle="{{ product.handle }}"
+  >
+    <div class="po-card">
+      {% if has_valid_addons %}
+        <h3 class="po-heading">Add Ons</h3>
+
+        <div class="po-addon-list">
+          {% for addon in addon_products %}
+            {% assign first_variant = addon.variants.first %}
+
+            {% if addon.title != blank and first_variant.numericId != blank %}
+              <div
+                class="po-addon"
+                data-po-addon
+                data-addon-product-id="{{ addon.numericId }}"
+                data-addon-product-title="{{ addon.title | escape }}"
+              >
+                <label class="po-addon-top">
+                  <input
+                    type="checkbox"
+                    class="po-checkbox"
+                    data-po-addon-checkbox
+                    value="{{ first_variant.numericId }}"
+                  >
+
+                  {% if addon.image.url %}
+                    <img
+                      class="po-img"
+                      src="{{ addon.image.url }}"
+                      alt="{{ addon.image.altText | escape }}"
+                      loading="lazy"
+                      width="58"
+                      height="58"
+                    >
+                  {% else %}
+                    <div class="po-img po-img-empty" aria-hidden="true"></div>
+                  {% endif %}
+
+                  <div class="po-addon-info">
+                    <p class="po-title">{{ addon.title }}</p>
+
+                    {% if first_variant.price %}
+                      <p class="po-price">
+                        {{ first_variant.price | times: 100 | money }}
+                      </p>
+                    {% endif %}
+                  </div>
+                </label>
+
+                {% if addon.variants.size > 1 %}
+                  <div class="po-select-row">
+                    <label class="po-variant-label">
+                      Variant
+                      <select data-po-addon-variant-select>
+                        {% for variant in addon.variants %}
+                          {% if variant.numericId != blank %}
+                            <option
+                              value="{{ variant.numericId }}"
+                              data-price="{{ variant.price }}"
+                              {% unless variant.availableForSale %}
+                                disabled
+                              {% endunless %}
+                            >
+                              {{ variant.title }}
+                              {% if variant.price %}
+                                - {{ variant.price | times: 100 | money }}
+                              {% endif %}
+                              {% unless variant.availableForSale %}
+                                - Sold out
+                              {% endunless %}
+                            </option>
+                          {% endif %}
+                        {% endfor %}
+                      </select>
+                    </label>
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
         </div>
-      </label>
+      {% endif %}
 
-      <div class="po-select-row">
-        <select>
-          <option>Color</option>
-          <option>Gray</option>
-          <option>Black</option>
-        </select>
+      {% if has_valid_custom_fields %}
+        <h3 class="po-heading custom">Custom fields</h3>
 
-        <select>
-          <option>Element</option>
-          <option>Cotton</option>
-          <option>Silk</option>
-        </select>
-      </div>
-    </div>
+        <div class="po-fields" data-po-custom-fields>
+          {% for field in custom_fields %}
+            {% if field.label != blank and field.type != blank %}
+              {% assign field_name = 'properties[' | append: field.label | append: ']' %}
 
-    <div class="po-addon">
-      <label class="po-addon-top">
-        <input type="checkbox" class="po-checkbox">
-        <div class="po-img"></div>
-        <div>
-          <p class="po-title">YOUR PRODUCTS TITLE HERE</p>
-          <p class="po-price">$18.00 <span>$34.00</span></p>
+              <div class="po-field po-field-{{ field.type }}">
+                {% unless field.type == 'checkbox' %}
+                  <label class="po-field-label" for="po-field-{{ field.id }}">
+                    {{ field.label }}
+
+                    {% if field.required %}
+                      <span class="po-required">*</span>
+                    {% endif %}
+                  </label>
+                {% endunless %}
+
+                {% case field.type %}
+                  {% when 'text' %}
+                    <input
+                      id="po-field-{{ field.id }}"
+                      type="text"
+                      name="{{ field_name }}"
+                      placeholder="{{ field.placeholder | escape }}"
+                      data-po-property-field
+                      data-property-label="{{ field.label | escape }}"
+                      {% if field.required %}
+                        required
+                      {% endif %}
+                    >
+
+                  {% when 'textarea' %}
+                    <textarea
+                      id="po-field-{{ field.id }}"
+                      name="{{ field_name }}"
+                      placeholder="{{ field.placeholder | escape }}"
+                      data-po-property-field
+                      data-property-label="{{ field.label | escape }}"
+                      {% if field.required %}
+                        required
+                      {% endif %}
+                    ></textarea>
+
+                  {% when 'number' %}
+                    <input
+                      id="po-field-{{ field.id }}"
+                      type="number"
+                      name="{{ field_name }}"
+                      placeholder="{{ field.placeholder | escape }}"
+                      data-po-property-field
+                      data-property-label="{{ field.label | escape }}"
+                      {% if field.required %}
+                        required
+                      {% endif %}
+                    >
+
+                  {% when 'dropdown' %}
+                    <select
+                      id="po-field-{{ field.id }}"
+                      name="{{ field_name }}"
+                      data-po-property-field
+                      data-property-label="{{ field.label | escape }}"
+                      {% if field.required %}
+                        required
+                      {% endif %}
+                    >
+                      <option value="">
+                        {% if field.placeholder != blank %}
+                          {{ field.placeholder }}
+                        {% else %}
+                          Select {{ field.label }}
+                        {% endif %}
+                      </option>
+
+                      {% for option in field.options %}
+                        <option value="{{ option | escape }}">{{ option }}</option>
+                      {% endfor %}
+                    </select>
+
+                  {% when 'checkbox' %}
+                    <label class="po-checkbox-field" for="po-field-{{ field.id }}">
+                      <input
+                        id="po-field-{{ field.id }}"
+                        type="checkbox"
+                        name="{{ field_name }}"
+                        value="Yes"
+                        data-po-property-field
+                        data-property-label="{{ field.label | escape }}"
+                        {% if field.required %}
+                          required
+                        {% endif %}
+                      >
+
+                      <span>
+                        {% if field.placeholder != blank %}
+                          {{ field.placeholder }}
+                        {% else %}
+                          {{ field.label }}
+                        {% endif %}
+
+                        {% if field.required %}
+                          <span class="po-required">*</span>
+                        {% endif %}
+                      </span>
+                    </label>
+
+                  {% when 'date' %}
+                    <input
+                      id="po-field-{{ field.id }}"
+                      type="date"
+                      name="{{ field_name }}"
+                      data-po-property-field
+                      data-property-label="{{ field.label | escape }}"
+                      {% if field.required %}
+                        required
+                      {% endif %}
+                    >
+                {% endcase %}
+              </div>
+            {% endif %}
+          {% endfor %}
         </div>
-      </label>
+      {% endif %}
+
+      <div class="po-error" data-po-error hidden></div>
     </div>
 
-    <div class="po-addon">
-      <label class="po-addon-top">
-        <input type="checkbox" class="po-checkbox">
-        <div class="po-img"></div>
-        <div>
-          <p class="po-title">YOUR PRODUCTS TITLE HERE</p>
-          <p class="po-price">$18.00 <span>$34.00</span></p>
-        </div>
-      </label>
-
-      <div class="po-select-row three">
-        <select>
-          <option>Color</option>
-        </select>
-
-        <select>
-          <option>Size</option>
-        </select>
-
-        <select>
-          <option>Element</option>
-        </select>
-      </div>
-    </div>
-
-    <h3 class="po-heading custom">Custom fields</h3>
-
-    <div class="po-fields">
-      <input type="text" placeholder="Name">
-      <input type="number" placeholder="Number">
-
-      <select>
-        <option>Select</option>
-      </select>
-
-      <input type="date" placeholder="DOB">
-
-      <textarea placeholder="Message"></textarea>
-    </div>
+    <script type="application/json" data-po-config-json>
+      {
+        "addons": {{ addon_products | json }},
+        "customFields": {{ custom_fields | json }}
+      }
+    </script>
   </div>
-</div>
 
-<style>
-  .product-options-box {
-    width: 100%;
-    margin-top: 24px;
-  }
-
-  .po-card {
-    border: 1px solid #dedede;
-    border-radius: 24px;
-    padding: 26px;
-    background: #fff;
-  }
-
-  .po-heading {
-    margin: 0 0 16px;
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  .po-heading.custom {
-    margin-top: 22px;
-  }
-
-  .po-addon {
-    border: 1px solid #dedede;
-    border-radius: 22px;
-    padding: 22px;
-    margin-bottom: 16px;
-  }
-
-  .po-addon-top {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    cursor: pointer;
-  }
-
-  .po-checkbox {
-    width: 22px;
-    height: 22px;
-    accent-color: #111;
-    flex-shrink: 0;
-  }
-
-  .po-img {
-    width: 58px;
-    height: 58px;
-    border-radius: 10px;
-    background: #efefef;
-    flex-shrink: 0;
-  }
-
-  .po-title {
-    margin: 0 0 8px;
-    font-size: 15px;
-    font-weight: 700;
-    line-height: 1.2;
-    text-transform: uppercase;
-  }
-
-  .po-price {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 700;
-    color: #d64c4c;
-  }
-
-  .po-price span {
-    margin-left: 8px;
-    color: #222;
-    font-size: 13px;
-    text-decoration: line-through;
-  }
-
-  .po-select-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-top: 20px;
-  }
-
-  .po-select-row.three {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-
-  .po-select-row select,
-  .po-fields input,
-  .po-fields select,
-  .po-fields textarea {
-    width: 100%;
-    min-height: 48px;
-    border: 1px solid #cfcfcf;
-    border-radius: 12px;
-    padding: 0 14px;
-    font-size: 14px;
-    background: #fff;
-  }
-
-  .po-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .po-fields textarea {
-    grid-column: 1 / -1;
-    min-height: 120px;
-    padding-top: 14px;
-    resize: vertical;
-  }
-
-  @media screen and (max-width: 749px) {
-    .po-card {
-      padding: 18px;
-      border-radius: 18px;
-    }
-
-    .po-addon {
-      padding: 16px;
-      border-radius: 16px;
-    }
-
-    .po-select-row,
-    .po-select-row.three,
-    .po-fields {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
+  <script src="{{ 'product-options.js' | asset_url }}" defer="defer"></script>
+{% endif %}
 
 {% schema %}
 {
